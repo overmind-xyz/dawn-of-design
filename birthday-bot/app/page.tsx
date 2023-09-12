@@ -74,7 +74,7 @@ export default function Home() {
             APT tokens that can be opened by the recipient on their birthday.
             <br />
             <br />
-            This dapp is built from Overmind's birthday bot frontend quest and is based off Overmind's <a href="https://overmind.xyz/quests/birthday-bot" target="_blank"><span className="underline decoration-slate-200">birthday bot quest</span></a>.
+            This dapp is built from Overmind's <a href="https://overmind.xyz/quests/dawn-of-design" target="_blank"><span className="underline decoration-slate-200">birthday bot frontend  quest</span></a> and is based off Overmind's <a href="https://overmind.xyz/quests/birthday-bot" target="_blank"><span className="underline decoration-slate-200">birthday bot quest</span></a>.
           </TypographyP>
         </div>
       </div>
