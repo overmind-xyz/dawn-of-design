@@ -162,6 +162,8 @@ export default function Home() {
             - Use the `isLoading` variable to check if the wallet is loading. Don't display the error
               message if the wallet is still loading.
             - Use the `accountExists` variable to check if the connected account exists on Testnet.
+            - Use the `network` variable to check if the wallet is connected to the Testnet. Don't 
+              display the error message if the wallet is not connected to the Testnet.
 
           -- Alert Component --
           <div className="h-full w-full flex flex-row items-end justify-end grow">
