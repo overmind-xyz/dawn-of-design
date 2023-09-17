@@ -40,7 +40,7 @@ export default function Home() {
   const checkIfAccountExists = async () => {
     /* 
       TODO #5: Make a request to the api endpoint to retrieve the account data. If the request returns 
-            an object that contains `error_code` of `account_not_found`, set the accountExists state 
+            an object that contains `error_code` or `account_not_found`, set the accountExists state 
             to false. Otherwise, set the accountExists state to true.
 
       HINT: 
