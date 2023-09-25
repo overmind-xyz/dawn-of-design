@@ -1,5 +1,5 @@
-'use client'
- 
+"use client";
+
 import {
   ColumnDef,
   flexRender,
@@ -7,7 +7,7 @@ import {
   useReactTable,
   getPaginationRowModel,
   VisibilityState,
-} from "@tanstack/react-table"
+} from "@tanstack/react-table";
 import {
   Table,
   TableBody,
@@ -15,7 +15,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/components/ui/table";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -25,32 +25,31 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Button } from "@/components/ui/button"
-import { useEffect, useState } from "react"
-import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
-import { useWallet } from "@aptos-labs/wallet-adapter-react"
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { useWallet } from "@aptos-labs/wallet-adapter-react";
 
 interface HistoryTableProps<TData, TValue> {
-  columns: ColumnDef<TData, TValue>[]
-  data: TData[]
+  columns: ColumnDef<TData, TValue>[];
+  data: TData[];
 }
 
 /* 
   Component to display the history of events in a table.
 */
 export function HistoryTable<TData, TValue>({
-  columns, 
-  data, 
+  columns,
+  data,
 }: HistoryTableProps<TData, TValue>) {
-
   // wallet adapter state
   const { isLoading, connected } = useWallet();
 
   /* 
     Table configuration state
   */
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState(5);
 
@@ -81,16 +80,14 @@ export function HistoryTable<TData, TValue>({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="ml-auto">
-              Columns 
+              Columns
               <ChevronDown className="ml-2" size={16} />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {table
               .getAllColumns()
-              .filter(
-                (column) => column.getCanHide()
-              )
+              .filter((column) => column.getCanHide())
               .map((column) => {
                 return (
                   <DropdownMenuCheckboxItem
@@ -103,7 +100,7 @@ export function HistoryTable<TData, TValue>({
                   >
                     {column.id}
                   </DropdownMenuCheckboxItem>
-                )
+                );
               })}
           </DropdownMenuContent>
         </DropdownMenu>
@@ -123,84 +120,64 @@ export function HistoryTable<TData, TValue>({
                             header.getContext()
                           )}
                     </TableHead>
-                  )
+                  );
                 })}
               </TableRow>
             ))}
           </TableHeader>
           <TableBody>
-            {
-              /* 
-                TODO #1: Show a loading indicator when the wallet is loading. Use the provided component.
-
-                -- Loading Component --
+            {isLoading && (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  Loading...
+                </TableCell>
+              </TableRow>
+            )}
+            {!connected && !isLoading && (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  Connect your wallet to view your history.
+                </TableCell>
+              </TableRow>
+            )}
+            {connected &&
+              !isLoading &&
+              table.getRowModel().rows?.length == 0 && (
                 <TableRow>
-                  <TableCell colSpan={columns.length} className="h-24 text-center">
-                    Loading...
-                  </TableCell>
-                </TableRow>
-              */
-            }
-            {
-              /*
-                TODO #2: Show a message when the wallet is not connected. Use the provided component.
-
-                HINT: 
-                  - Use the `connected` variable to check if the wallet is connected.
-                  - Use the `isLoading` variable to check if the wallet is loading. Do not show the 
-                    message if the wallet is loading.
-
-                -- Not Connected Component --
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="h-24 text-center">
-                    Connect your wallet to view your history.
-                  </TableCell>
-                </TableRow>
-              */
-            }
-            {
-              /* 
-                TODO #3: Show a message when the wallet is connected but there is no history. Use the provided component.
-
-                HINT:
-                  - Use the `connected` variable to check if the wallet is connected.
-                  - Use the `isLoading` variable to check if the wallet is loading. Do not show the
-                    message if the wallet is loading.
-                  - Use the `table.getRowModel().rows?.length` variable to get the number of rows.
-                
-                -- No Data Component --
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="h-24 text-center">
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center"
+                  >
                     No data.
                   </TableCell>
                 </TableRow>
-              */
-            }
-            {
-              /*
-                TODO #4: Show the table rows when the wallet is connected and there is history. Use the provided component.
-
-                HINT:
-                  - Use the `connected` variable to check if the wallet is connected.
-                  - Use the `isLoading` variable to check if the wallet is loading. Do not show the
-                    table rows if the wallet is loading.
-                  - Use the `table.getRowModel().rows` variable to get the rows.
-                  - Use the `table.getRowModel().rows?.length` variable to get the number of rows.
-                  - Use the `table.getRowModel().rows?.map()` function to iterate over the rows.
-
-                -- Table Row Component --
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              */
-            }
+              )}
+            {connected &&
+              !isLoading &&
+              table.getRowModel().rows?.length > 0 &&
+              table.getRowModel().rows?.map((row, index) => {
+                return (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                );
+              })}
           </TableBody>
         </Table>
       </div>
@@ -215,22 +192,25 @@ export function HistoryTable<TData, TValue>({
           <DropdownMenuContent>
             <DropdownMenuLabel>Page Size</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuRadioGroup value={pageSize.toString()} onValueChange={
-              (value) => {
+            <DropdownMenuRadioGroup
+              value={pageSize.toString()}
+              onValueChange={(value) => {
                 if (value === `${data.length}`) {
-                  setPageSize(data.length)
-                  table.setPageSize(data.length)
-                } else { 
-                  setPageSize(parseInt(value))
-                  table.setPageSize(parseInt(value))
+                  setPageSize(data.length);
+                  table.setPageSize(data.length);
+                } else {
+                  setPageSize(parseInt(value));
+                  table.setPageSize(parseInt(value));
                 }
-                setPageNumber(1)
-                table.setPageIndex(0)
-              }
-            }>
+                setPageNumber(1);
+                table.setPageIndex(0);
+              }}
+            >
               <DropdownMenuRadioItem value="5">5</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="15">15</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value={`${data.length}`}>All</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value={`${data.length}`}>
+                All
+              </DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -238,8 +218,8 @@ export function HistoryTable<TData, TValue>({
           variant="outline"
           size="icon"
           onClick={() => {
-            table.previousPage()
-            setPageNumber(pageNumber - 1)
+            table.previousPage();
+            setPageNumber(pageNumber - 1);
           }}
           disabled={!table.getCanPreviousPage()}
         >
@@ -252,8 +232,8 @@ export function HistoryTable<TData, TValue>({
           variant="outline"
           size="icon"
           onClick={() => {
-            table.nextPage()
-            setPageNumber(pageNumber + 1)
+            table.nextPage();
+            setPageNumber(pageNumber + 1);
           }}
           disabled={!table.getCanNextPage()}
         >
@@ -261,5 +241,5 @@ export function HistoryTable<TData, TValue>({
         </Button>
       </div>
     </div>
-  )
+  );
 }
