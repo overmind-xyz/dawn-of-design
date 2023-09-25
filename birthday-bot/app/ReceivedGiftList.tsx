@@ -1,9 +1,5 @@
-
 import React, { useEffect } from "react";
-import {
-  CardDescription,
-  CardTitle,
-} from "@/components/ui/card";
+import { CardDescription, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -21,7 +17,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Types } from "aptos";
+import { AptosClient, Types } from "aptos";
 import { sleep } from "@/lib/utils";
 
 type RecipientGifts = {
@@ -30,16 +26,21 @@ type RecipientGifts = {
   timestamp: number;
 };
 
+const MODULE_ADDRESS = process.env.MODULE_ADDRESS;
+const MODULE_NAME = process.env.MODULE_NAME;
+const RESOURCE_ACCOUNT_ADDRESS = process.env.RESOURCE_ACCOUNT_ADDRESS;
+
+// Create an AptosClient to interact with testnet.
+const client = new AptosClient("https://fullnode.testnet.aptoslabs.com/v1");
+
 /* 
   Lists all of the user's received gifts. Allows the user to claim gifts whose release time has 
   passed.
 */
-export default function ReceivedGiftList(
-  props: {
-    isTxnInProgress: boolean;
-    setTxn: (isTxnInProgress: boolean) => void;
-  }
-) {
+export default function ReceivedGiftList(props: {
+  isTxnInProgress: boolean;
+  setTxn: (isTxnInProgress: boolean) => void;
+}) {
   // Lists of gifts sent to the user
   const [gifts, setGifts] = React.useState<RecipientGifts[]>([]);
   // State for the wallet
@@ -61,47 +62,77 @@ export default function ReceivedGiftList(
     Gets the gifts sent to the user.
   */
   const getGifts = async () => {
-    /*
-      TODO #2: Validate the account is defined before continuing. If not, return.
-    */
-    
-    /* 
-      TODO #3: Make a view function call to the view_recipients_gifts function in the birthday_bot 
-            module to get the gifts sent to the user.
-    */
+    if (!account?.address) {
+      return [];
+    }
 
-    /*
-      TODO #4: Take the response from the view request and parse it into a list of gifts. The gifts 
-            should then be sorted by their release time in ascending order. Return the sorted list
-            of gifts. 
+    const body: Types.TransactionPayload = {
+      type: "view_function_payload",
+      function:
+        "0x15ead142473563d1a07fae2aa04c6d38d19b33222c110a4667af357aa31439c2::birthday_bot::view_recipients_gifts",
+      type_arguments: [],
+      arguments: [account?.address],
+    };
 
-      HINT:
-        - Remember to convert the amount to floating point format
-    */
-    return []; // PLACEHOLDER
+    let res;
+    try {
+      res = await fetch(`https://fullnode.testnet.aptoslabs.com/v1/view`, {
+        method: "POST",
+        body: JSON.stringify(body),
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
+    } catch (e) {
+      console.error("Error fetching recipient gifts:", e);
+      return;
+    }
+
+    const data = await res.json();
+
+    const [giftFroms, rawGiftAmounts, giftTimestampsSeconds] = data;
+
+    const giftAmounts = rawGiftAmounts.map(
+      (amount: number) => amount / 100000000
+    );
+
+    const gifts = giftFroms.map((from: string, index: number) => {
+      return {
+        from,
+        amount: giftAmounts[index],
+        timestamp: giftTimestampsSeconds[index],
+      };
+    });
+
+    gifts.sort(
+      (a: { timestamp: number }, b: { timestamp: number }) =>
+        a.timestamp - b.timestamp
+    );
+
+    return gifts;
   };
 
-  /* 
-    Claims a gift sent to the user.
-  */
   const claimGift = async (giftSender: string) => {
-    /* 
-      TODO #6: Set the isTxnInProgress prop to true
-    */
+    props.setTxn(true);
 
-    /*
-      TODO #7: Submit a transactions to the claim_birthday_gift function in the birthday_bot module to 
-      claim the gift sent from the `giftSender` address.
+    try {
+      const txnBody: Types.TransactionPayload = {
+        type: "entry_function_payload",
+        type_arguments: [],
+        function:
+          "0x15ead142473563d1a07fae2aa04c6d38d19b33222c110a4667af357aa31439c2::birthday_bot::claim_birthday_gift",
+        arguments: [giftSender],
+      };
 
-      HINT: 
-        - Use a try/catch block to catch any errors that may occur. In the case of an error, set the
-          isTxnInProgress prop to false and return.
-    */
+      await signAndSubmitTransaction(txnBody);
+    } catch (error) {
+      console.error("Error submitting transaction:", error);
+      props.setTxn(false);
+      return;
+    }
 
-    /*
-      TODO #8: Set the `isTxnInProgress` state to false.
-    */
-
+    props.setTxn(false);
   };
 
   return (
@@ -109,13 +140,13 @@ export default function ReceivedGiftList(
       <div>
         <CardTitle className="my-2">Gifts sent to you!</CardTitle>
         <CardDescription className="break-normal w-96">
-          View and open all of your gifts! You can only open gifts after the 
+          View and open all of your gifts! You can only open gifts after the
           release time has passed. Spend your gifts on something nice!
         </CardDescription>
       </div>
       <ScrollArea className="border rounded-lg">
         <div className="h-fit max-h-56">
-          <Table >
+          <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="text-center">From</TableHead>
@@ -125,46 +156,34 @@ export default function ReceivedGiftList(
               </TableRow>
             </TableHeader>
             <TableBody>
-              {
-                /* 
-                  TODO #1: If the user has no gifts, display a table row with a message saying that
-                        the user has no gifts. Use the provided components to display the message.
+              {gifts.length == 0 && (
+                <TableRow>
+                  <TableCell colSpan={4}>
+                    <p className="break-normal w-80 text-center">
+                      You have no gifts yet. Send some gifts to your friends for
+                      their birthdays!
+                    </p>
+                  </TableCell>
+                </TableRow>
+              )}
+              {gifts.map((gift, index) => {
+                const aptosTime = gift.timestamp;
+                const javascriptTimestampInMilliseconds = aptosTime * 1000;
+                const releaseDate = new Date(javascriptTimestampInMilliseconds);
+                const isGiftClaimable =
+                  new Date().getTime() > gift.timestamp * 1000;
 
-                  HINT: 
-                    - Use the gifts state variable to determine if the user has any gifts.
-
-                  -- Message Component --
-                  <TableRow>
-                    <TableCell colSpan={4}>
-                      <p className="break-normal w-80 text-center">
-                        You have no gifts yet. Send some gifts to your friends for their birthdays!
-                      </p>
-                    </TableCell>
-                  </TableRow>
-                */
-              }
-              {
-                /* 
-                  TODO #5: Iterate through the gifts state variable and display each gift in a table row.
-                        Use the provided components to display the gift information.
-
-                  HINT: 
-                    - For the key of each `TableRow`, use the index of the gift in the gifts state 
-                      variable.
-
-                  -- Gift Row Component --
+                return (
                   <TableRow key={index}>
                     <TableCell className="font-mono text-center">
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger className="underline">
-                            PLACEHOLDER: Display the truncated address of the gift sender here
-                            HINT: Show the first 6 characters of the address (including 0x), followed by '...', then the last 4 characters of the address
+                            {`${gift.from.slice(0, 6)}...
+                ${gift.from.slice(-4)}`}
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>
-                              PLACEHOLDER: Display the full address of the gift sender here
-                            </p>
+                            <p>{gift.from}</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -173,14 +192,10 @@ export default function ReceivedGiftList(
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger className="underline">
-                            PLACEHOLDER: Show the gift amount in APT here (rounded to 2 decimal places)
-                            HINT: Remember to show the unit of the amount (APT) after the amount
+                            {`${gift.amount.toFixed(2)} APT`}
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>
-                              PLACEHOLDER: Show the gift amount in APT here (rounded to 8 decimal places)
-                              HINT: Remember to show the unit of the amount (APT) after the amount
-                            </p>
+                            <p>{`${gift.amount.toFixed(8)} APT`}</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -189,18 +204,10 @@ export default function ReceivedGiftList(
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger className="underline">
-                            PLACEHOLDER: Show the release date of the gift here
-                            HINT: 
-                              - Convert the timestamp to a Date object and use the toLocaleDateString() method to format the date
-                              - Note that the timestamp from Aptos is in seconds, but not milliseconds
+                            {releaseDate.toLocaleDateString()}
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>
-                              PLACEHOLDER: Show the release date and time of the gift here
-                              HINT: 
-                                - Convert the timestamp to a Date object and use the toLocaleString() method to format the date and time
-                                - Note that the timestamp from Aptos is in seconds, but not milliseconds
-                            </p>
+                            <p>{releaseDate.toLocaleString()}</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -209,22 +216,15 @@ export default function ReceivedGiftList(
                       <Button
                         size="sm"
                         variant="secondary"
-                        onClick={() => {
-                          // PLACEHOLDER: Call the claimGift function here
-
-                          // PLACEHOLDER: Disable the claim button if the gift's release time has not passed
-                          // HINT: Do this by setting the disabled prop (below) to true or false 
-                          //        depending on if the gift's release time has passed
-
-                        }}
-                        disabled={true}
+                        onClick={() => claimGift(gift.from)}
+                        disabled={!isGiftClaimable}
                       >
                         Claim
                       </Button>
                     </TableCell>
                   </TableRow>
-                */
-              }
+                );
+              })}
             </TableBody>
           </Table>
         </div>
